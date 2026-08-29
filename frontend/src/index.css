@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+
+
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: theme("fontFamily.body");
+  -webkit-font-smoothing: antialiased;
+  background: #F4EFE6;
+  color: #332C2A;
+}
+
+
+
+:focus-visible {
+  outline: 2px solid #C96B4B;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.dark :focus-visible {
+  outline-color: #D9825F;
+}
+
+
+
+::selection {
+  background: #C96B4B;
+  color: #FBF8F2;
+}
+
+
+
+
+textarea::placeholder,
+input::placeholder {
+  color: theme("colors.ink.faint");
+}
+
+
+
+.perspective {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+
+
+
+.punch-hole {
+  box-shadow: theme("boxShadow.punch");
+}
+
+
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E8DED0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #B9AAA0;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C96B4B;
+}
+
+
+
+
+.dark ::-webkit-scrollbar-track {
+  background: #252220;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #49413D;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #D9825F;
+}
+
+
+
+
+textarea {
+  caret-color: #C96B4B;
+}
+
+.dark textarea {
+  caret-color: #D9825F;
+}
+
+
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+
+
+body,
+button,
+textarea,
+input,
+section,
+div {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
