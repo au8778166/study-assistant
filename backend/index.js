@@ -5,13 +5,17 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
-app.use(cors());
 app.use(express.json({ limit: "200kb" }));
-
 const PORT = process.env.PORT || 8787;
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+  })
+);
 const BASE_URL = process.env.MODEL_BASE_URL || "https://api.groq.com/openai/v1";
-const MODEL = process.env.MODEL_NAME || "llama-3.3-70b-versatile";
+const MODEL = process.env.MODEL_NAME || "openai/gpt-oss-120b";
 const API_KEY = process.env.MODEL_API_KEY || "";
 
 const MAX_NOTES_LENGTH = 12000;

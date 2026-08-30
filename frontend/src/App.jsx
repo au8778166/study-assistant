@@ -21,34 +21,54 @@ import {
 } from "./lib/storage.js";
 
 export default function App() {
+  /* =========================================================
+     INPUT STATE
+  ========================================================= */
+
   const [notes, setNotes] = useState("");
   const [mode, setMode] = useState("flashcards");
   const [count, setCount] = useState(8);
+
+  /* =========================================================
+     APPLICATION STATE
+  ========================================================= */
 
   const [status, setStatus] = useState("idle");
   const [studySet, setStudySet] = useState(null);
   const [error, setError] = useState(null);
 
-  const [sessions, setSessions] = useState(() =>
-    loadSessions()
-  );
+  /* =========================================================
+     SESSION HISTORY
+  ========================================================= */
 
-  const [theme, setTheme] = useState(() =>
-    loadTheme() ||
-    (
-      window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
+  const [sessions, setSessions] = useState(() => loadSessions());
+
+  /* =========================================================
+     THEME
+  ========================================================= */
+
+  const [theme, setTheme] = useState(() => {
+    return (
+      loadTheme() ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
-        : "light"
-    )
-  );
+        : "light")
+    );
+  });
 
+  /* =========================================================
+     REQUEST CONTROL
+  ========================================================= */
+
+  // Prevent an older API request from replacing a newer result.
   const requestIdRef = useRef(0);
+
+  // Used to cancel an active API request.
   const abortRef = useRef(null);
 
-  /* -------------------------------- */
-  /* Theme                            */
-  /* -------------------------------- */
+  /* =========================================================
+     THEME EFFECT
+  ========================================================= */
 
   useEffect(() => {
     document.documentElement.classList.toggle(
@@ -59,19 +79,21 @@ export default function App() {
     saveTheme(theme);
   }, [theme]);
 
-  /* -------------------------------- */
-  /* Generate                         */
-  /* -------------------------------- */
+  /* =========================================================
+     GENERATE STUDY SET
+  ========================================================= */
 
   async function runGenerate() {
     if (!notes.trim()) return;
 
+    // Cancel previous request if one exists.
     abortRef.current?.abort();
 
     const controller = new AbortController();
 
     abortRef.current = controller;
 
+    // Create a unique ID for this request.
     const myId = ++requestIdRef.current;
 
     setStatus("loading");
@@ -85,12 +107,17 @@ export default function App() {
         signal: controller.signal,
       });
 
+      // Ignore stale responses.
       if (requestIdRef.current !== myId) {
         return;
       }
 
       setStudySet(result);
       setStatus("success");
+
+      /* -----------------------------------------
+         Save generated session
+      ----------------------------------------- */
 
       const saved = saveSession({
         notes: notes.trim(),
@@ -103,7 +130,10 @@ export default function App() {
         setSessions(loadSessions());
       }
 
-      // Scroll to generated content
+      /* -----------------------------------------
+         Scroll to result
+      ----------------------------------------- */
+
       setTimeout(() => {
         document
           .getElementById("study-result")
@@ -113,10 +143,12 @@ export default function App() {
           });
       }, 100);
     } catch (err) {
+      // Ignore stale request errors.
       if (requestIdRef.current !== myId) {
         return;
       }
 
+      // Ignore cancellation errors.
       if (
         err instanceof ApiError &&
         err.type === "cancelled"
@@ -124,26 +156,27 @@ export default function App() {
         return;
       }
 
-      setError(
+      const apiError =
         err instanceof ApiError
           ? err
           : new ApiError(
               "server",
               "Something unexpected went wrong."
-            )
-      );
+            );
 
+      setError(apiError);
       setStatus("error");
     }
   }
 
-  /* -------------------------------- */
-  /* Cancel                           */
-  /* -------------------------------- */
+  /* =========================================================
+     CANCEL GENERATION
+  ========================================================= */
 
   function handleCancel() {
     abortRef.current?.abort();
 
+    // Invalidate current request.
     requestIdRef.current++;
 
     setStatus(
@@ -153,9 +186,9 @@ export default function App() {
     );
   }
 
-  /* -------------------------------- */
-  /* New study set                    */
-  /* -------------------------------- */
+  /* =========================================================
+     CREATE NEW STUDY SET
+  ========================================================= */
 
   function handleNewSet() {
     abortRef.current?.abort();
@@ -163,9 +196,11 @@ export default function App() {
     requestIdRef.current++;
 
     setNotes("");
+    setMode("flashcards");
+    setCount(8);
+
     setStudySet(null);
     setError(null);
-
     setStatus("idle");
 
     window.scrollTo({
@@ -174,9 +209,9 @@ export default function App() {
     });
   }
 
-  /* -------------------------------- */
-  /* Load history                     */
-  /* -------------------------------- */
+  /* =========================================================
+     LOAD SESSION FROM HISTORY
+  ========================================================= */
 
   function handleLoadSession(session) {
     abortRef.current?.abort();
@@ -191,50 +226,118 @@ export default function App() {
     setStatus("success");
     setError(null);
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    setTimeout(() => {
+      document
+        .getElementById("study-result")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 100);
   }
 
-  /* -------------------------------- */
-  /* Delete history                   */
-  /* -------------------------------- */
+  /* =========================================================
+     DELETE SESSION
+  ========================================================= */
 
   function handleDeleteSession(id) {
     deleteSession(id);
+
     setSessions(loadSessions());
   }
 
-  /* -------------------------------- */
-  /* Render                           */
-  /* -------------------------------- */
+  /* =========================================================
+     TOGGLE THEME
+  ========================================================= */
+
+  function handleToggleTheme() {
+    setTheme((currentTheme) =>
+      currentTheme === "dark"
+        ? "light"
+        : "dark"
+    );
+  }
+
+  /* =========================================================
+     RENDER STUDY RESULT
+  ========================================================= */
+
+  function renderStudyResult() {
+    if (!studySet) return null;
+
+    /*
+      Currently supported block types:
+
+      flashcards
+      quiz
+
+      Later we can extend this to:
+
+      checklist
+      summary
+      chart
+      matching
+      true/false
+      etc.
+    */
+
+    switch (studySet.kind) {
+      case "quiz":
+        return (
+          <QuizView
+            studySet={studySet}
+          />
+        );
+
+      case "flashcards":
+        return (
+          <FlashcardDeck
+            studySet={studySet}
+          />
+        );
+
+      default:
+        return (
+          <div className="max-w-3xl mx-auto px-5 py-10 text-center">
+            <p className="font-mono text-sm text-incorrect">
+              Unsupported study material type.
+            </p>
+          </div>
+        );
+    }
+  }
+
+  /* =========================================================
+     MAIN UI
+  ========================================================= */
 
   return (
     <div
       className="
         min-h-screen
-        flex flex-col
-        bg-paper dark:bg-night
-        bg-rule dark:bg-none
-        transition-colors duration-300
+        flex
+        flex-col
+        bg-paper
+        dark:bg-night
+        bg-rule
+        dark:bg-none
+        transition-colors
+        duration-300
       "
     >
 
-      {/* ================= HEADER ================= */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <Header
         theme={theme}
-        onToggleTheme={() =>
-          setTheme((t) =>
-            t === "dark"
-              ? "light"
-              : "dark"
-          )
-        }
+        onToggleTheme={handleToggleTheme}
       />
 
-      {/* ================= INPUT ================= */}
+      {/* =====================================================
+          INPUT PANEL
+      ===================================================== */}
 
       <div className="relative z-10">
         <InputPanel
@@ -251,7 +354,9 @@ export default function App() {
         />
       </div>
 
-      {/* ================= MAIN ================= */}
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
 
       <main
         id="study-result"
@@ -262,29 +367,39 @@ export default function App() {
         "
       >
 
-        {/* IDLE */}
+        {/* ===================================================
+            IDLE STATE
+        =================================================== */}
 
         {status === "idle" && (
           <div
             key="idle"
             className="animate-popIn"
           >
-            <EmptyState mode={mode} />
+            <EmptyState
+              mode={mode}
+            />
           </div>
         )}
 
-        {/* LOADING */}
+        {/* ===================================================
+            LOADING STATE
+        =================================================== */}
 
         {status === "loading" && (
           <div
             key="loading"
             className="animate-popIn"
           >
-            <LoadingState mode={mode} />
+            <LoadingState
+              mode={mode}
+            />
           </div>
         )}
 
-        {/* ERROR */}
+        {/* ===================================================
+            ERROR STATE
+        =================================================== */}
 
         {status === "error" && (
           <div
@@ -298,24 +413,25 @@ export default function App() {
           </div>
         )}
 
-        {/* SUCCESS */}
+        {/* ===================================================
+            SUCCESS STATE
+        =================================================== */}
 
         {status === "success" && studySet && (
           <div
             key="success"
             className="animate-popIn"
           >
-            {studySet.kind === "quiz" ? (
-              <QuizView studySet={studySet} />
-            ) : (
-              <FlashcardDeck
-                studySet={studySet}
-              />
-            )}
 
-            {/* New set button */}
+            {/* Generated study material */}
 
-            <div className="flex justify-center pb-10">
+            {renderStudyResult()}
+
+            {/* =================================================
+                CREATE NEW STUDY SET
+            ================================================= */}
+
+            <div className="flex justify-center pb-10 px-5">
 
               <button
                 type="button"
@@ -325,7 +441,8 @@ export default function App() {
                   inline-flex
                   items-center
                   gap-2
-                  px-4 py-2
+                  px-4
+                  py-2
                   rounded-full
                   border
                   border-ink/10
@@ -341,25 +458,31 @@ export default function App() {
                   transition-all
                 "
               >
+
                 <span
                   className="
                     group-hover:rotate-90
                     transition-transform
+                    duration-300
                   "
                 >
                   +
                 </span>
 
                 Create new study set
+
               </button>
 
             </div>
+
           </div>
         )}
 
       </main>
 
-      {/* ================= HISTORY ================= */}
+      {/* =====================================================
+          SESSION HISTORY
+      ===================================================== */}
 
       <SessionHistory
         sessions={sessions}
@@ -367,12 +490,15 @@ export default function App() {
         onDelete={handleDeleteSession}
       />
 
-      {/* ================= FOOTER ================= */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <footer
         className="
           mt-auto
-          px-5 sm:px-8
+          px-5
+          sm:px-8
           py-8
           max-w-5xl
           mx-auto
