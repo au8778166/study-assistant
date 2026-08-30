@@ -10,6 +10,8 @@ export class ApiError extends Error {
 
 const CLIENT_TIMEOUT_MS = 30000;
 
+const API_URL = import.meta.env.VITE_API_URL || "";
+
 export async function generateStudySet({
   notes,
   mode,
@@ -18,38 +20,45 @@ export async function generateStudySet({
 }) {
   const timeoutController = new AbortController();
 
-  const timeoutId = setTimeout(() => {
-    timeoutController.abort();
-  }, CLIENT_TIMEOUT_MS);
+  const timeoutId = setTimeout(
+    () => timeoutController.abort(),
+    CLIENT_TIMEOUT_MS
+  );
 
   const onExternalAbort = () => {
     timeoutController.abort();
   };
 
   if (signal) {
-    signal.addEventListener("abort", onExternalAbort);
+    signal.addEventListener(
+      "abort",
+      onExternalAbort
+    );
   }
 
   let res;
 
   try {
-    res = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        notes,
-        mode,
-        count,
-      }),
-      signal: timeoutController.signal,
-    });
+    res = await fetch(
+      `${API_URL}/api/generate`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          notes,
+          mode,
+          count,
+        }),
+        signal: timeoutController.signal,
+      }
+    );
   } catch (err) {
     if (signal?.aborted) {
       throw new ApiError(
         "cancelled",
-        "Request was cancelled."
+        "Request was superseded."
       );
     }
 
@@ -62,7 +71,7 @@ export async function generateStudySet({
 
     throw new ApiError(
       "network",
-      "Couldn't reach the server. Check your connection and make sure the backend is running."
+      "Couldn't reach the server. Check your connection and that the backend is running."
     );
   } finally {
     clearTimeout(timeoutId);
@@ -78,7 +87,7 @@ export async function generateStudySet({
   if (signal?.aborted) {
     throw new ApiError(
       "cancelled",
-      "Request was cancelled."
+      "Request was superseded."
     );
   }
 
@@ -89,7 +98,7 @@ export async function generateStudySet({
   } catch {
     throw new ApiError(
       "server",
-      "The server returned invalid JSON."
+      "The server returned a response that wasn't valid JSON."
     );
   }
 
@@ -109,7 +118,10 @@ export async function generateStudySet({
   }
 
   try {
-    return validateStudySet(body.raw, mode);
+    return validateStudySet(
+      body.raw,
+      mode
+    );
   } catch (err) {
     if (err instanceof ShapeError) {
       throw new ApiError(
